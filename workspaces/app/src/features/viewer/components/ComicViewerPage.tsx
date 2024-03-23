@@ -1,8 +1,5 @@
-import { useRef } from 'react';
-import { useAsync } from 'react-use';
+import React, { useRef, useEffect } from 'react';
 import styled from 'styled-components';
-
-import { decrypt } from '@wsh-2024/image-encrypt/src/decrypt';
 
 import { getImageUrl } from '../../../lib/image/getImageUrl';
 
@@ -18,32 +15,45 @@ type Props = {
 };
 
 export const ComicViewerPage = ({ pageImageId }: Props) => {
-  const ref = useRef<HTMLCanvasElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imageRef = useRef(new Image());
 
-  useAsync(async () => {
-    const image = new Image();
-    image.src = getImageUrl({
-      format: 'jxl',
-      imageId: pageImageId,
-    });
-    await image.decode();
-
-    const canvas = ref.current!;
-    canvas.width = image.naturalWidth;
-    canvas.height = image.naturalHeight;
-    const ctx = canvas.getContext('2d')!;
-
-    decrypt({
-      exportCanvasContext: ctx,
-      sourceImage: image,
-      sourceImageInfo: {
-        height: image.naturalHeight,
-        width: image.naturalWidth,
-      },
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const image = imageRef.current;
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          // 画像がビューポートに入ったら読み込みを開始
+          image.src = getImageUrl({
+            format: 'jxl',
+            imageId: pageImageId,
+          });
+          observer.unobserve(canvas);
+        }
+      });
+    }, {
+      rootMargin: '0px',
+      threshold: 0.1 // 10%の部分が見えたらトリガー
     });
 
-    canvas.setAttribute('role', 'img');
+    if (canvas) {
+      observer.observe(canvas);
+    }
+
+    image.onload = () => {
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        canvas.width = image.naturalWidth;
+        canvas.height = image.naturalHeight;
+        ctx.drawImage(image, 0, 0);
+      }
+    };
+
+    return () => {
+      observer.disconnect();
+    };
   }, [pageImageId]);
 
-  return <_Canvas ref={ref} />;
+  return <_Canvas ref={canvasRef} />;
 };
