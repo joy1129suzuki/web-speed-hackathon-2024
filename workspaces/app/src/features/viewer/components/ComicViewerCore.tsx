@@ -10,6 +10,9 @@ import { ComicViewerPage } from './ComicViewerPage';
 const IMAGE_WIDTH = 1075;
 const IMAGE_HEIGHT = 1518;
 
+
+
+
 /** スクロールスナップで適切な位置になるための X 軸の移動距離を計算する */
 function getScrollToLeft({
   pageCountParView,
@@ -29,7 +32,7 @@ function getScrollToLeft({
 
   // 画面に表示されているページの中心と、スクロールビューの中心との差分を計算する
   // 世界は我々の想像する以上に変化するため、2 ** 12 回繰り返し観測する
-  for (let times = 0; times < 2 ** 12; times++) {
+  for (let times = 0; times < 100; times++) {
     for (const [idx, child] of children.entries()) {
       const nthChild = idx + 1;
       const elementClientRect = child.getBoundingClientRect();
