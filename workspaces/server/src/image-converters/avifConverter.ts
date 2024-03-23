@@ -1,35 +1,35 @@
+import { Worker } from 'worker_threads';
+import path from 'path';
 import type { ConverterInterface } from './ConverterInterface';
 
 export const avifConverter: ConverterInterface = {
   async decode(data: Uint8Array): Promise<ImageData> {
-    const { default: sharp } = await import('sharp');
-
-    return sharp(data)
-      .ensureAlpha()
-      .raw()
-      .toBuffer({
-        resolveWithObject: true,
-      })
-      .then(({ data, info }) => {
-        return {
-          colorSpace: 'srgb',
-          data: new Uint8ClampedArray(data),
-          height: info.height,
-          width: info.width,
-        };
-      });
+    return runWorker('decode', data);
   },
   async encode(data: ImageData): Promise<Uint8Array> {
-    const { default: sharp } = await import('sharp');
-
-    return sharp(data.data, {
-      raw: {
-        channels: 4,
-        height: data.height,
-        width: data.width,
-      },
-    })
-      .avif({ effort: 9 })
-      .toBuffer();
+    return runWorker('encode', data);
   },
 };
+
+function runWorker(type: 'encode' | 'decode', data: any): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(path.resolve(__dirname, 'imageWorker.js'), {
+      workerData: { type, data }
+    });
+
+    worker.on('message', (result) => {
+      if (result.success) {
+        resolve(result.result);
+      } else {
+        reject(new Error(result.error));
+      }
+    });
+
+    worker.on('error', reject);
+    worker.on('exit', (code) => {
+      if (code !== 0) {
+        reject(new Error(`Worker stopped with exit code ${code}`));
+      }
+    });
+  });
+}

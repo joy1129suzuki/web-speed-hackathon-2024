@@ -26,7 +26,7 @@ export const ComicViewerPage = ({ pageImageId }: Props) => {
         if (entry.isIntersecting) {
           // 画像がビューポートに入ったら読み込みを開始
           image.src = getImageUrl({
-            format: 'jxl',
+            format: 'avif',
             imageId: pageImageId,
           });
           observer.unobserve(canvas);
