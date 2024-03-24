@@ -12,7 +12,7 @@ import { AuthorDetailPage } from './pages/AuthorDetailPage';
 import { BookDetailPage } from './pages/BookDetailPage';
 import { EpisodeDetailPage } from './pages/EpisodeDetailPage';
 import { SearchPage } from './pages/SearchPage';
-import { TopPage } from './pages/TopPage';
+import  TopPage  from './pages/TopPage';
 
 const _BackToTopButton = styled(Link)`
   display: flex;

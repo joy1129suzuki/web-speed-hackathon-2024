@@ -119,4 +119,4 @@ const TopPage: React.FC = () => {
   );
 };
 
-export { TopPage as default };
+export default TopPage
