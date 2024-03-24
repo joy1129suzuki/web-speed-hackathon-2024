@@ -1,7 +1,9 @@
-import React, { Suspense, lazy, useId } from 'react';
+import React, { Suspense, lazy, useEffect, useState, useId } from 'react';
 import { format, startOfToday } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import useCachedData from '../../hooks/useCachedData';
+import { releaseApiClient } from '../../features/release/apiClient/releaseApiClient';
+import { rankingApiClient } from '../../features/ranking/apiClient/rankingApiClient';
+import { useFeatureList } from '../../features/feature/hooks/useFeatureList';
 import { BookCard } from '../../features/book/components/BookCard';
 import { FeatureCard } from '../../features/feature/components/FeatureCard';
 import { RankingCard } from '../../features/ranking/components/RankingCard';
@@ -14,56 +16,53 @@ import { Color, Space, Typography } from '../../foundation/styles/variables';
 // CoverSectionを動的にインポート
 const CoverSection = lazy(() => import('./internal/CoverSection'));
 
-// 実際のデータフェッチロジック
-async function fetchReleaseData() {
-  // 曜日を英語の小文字で取得（例: 'monday'）
-  const dayOfWeek = format(today, 'EEEE', { locale: ja }).toLowerCase();
-  // リリースデータのエンドポイントURLを組み立て
-  const url = `/api/v1/releases/${dayOfWeek}`;
-
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error('Release data fetch failed');
-  }
-  return await response.json();
-}
-
-async function fetchFeatureList() {
-  const response = await fetch('/api/v1/features');
-  if (!response.ok) {
-    throw new Error('Feature list fetch failed');
-  }
-  return await response.json();
-}
-
-async function fetchRankingList() {
-  const response = await fetch('/api/v1/rankings');
-  if (!response.ok) {
-    throw new Error('Ranking list fetch failed');
-  }
-  return await response.json();
-}
-
 const TopPage: React.FC = () => {
-  const today = startOfToday();
-  const todayStr = format(today, 'EEEE', { locale: ja });
+  const [releaseData, setReleaseData] = useState(null);
+  const [rankingList, setRankingList] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
-  // キャッシュされたデータを使用
-  const [releaseData, loadingRelease, errorRelease] = useCachedData(`release-${todayStr}`, fetchReleaseData);
-  const [featureList, loadingFeatures, errorFeatures] = useCachedData('featureList', fetchFeatureList);
-  const [rankingList, loadingRankings, errorRankings] = useCachedData('rankingList', fetchRankingList);
+  // フォールバックデータを定義
+  const fallbackFeatureListData = {
+    features: [] // フォールバック時は空のリストを使用
+  };
+
+  // useFeatureListフックにフォールバックデータを渡す
+  const { data: featureList, error: featureListError } = useFeatureList({ query: {} }, fallbackFeatureListData);
+
+  const today = startOfToday();
+  const todayStr = format(today, 'EEEE', { locale: ja }).toLowerCase();
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const releaseResponse = await releaseApiClient.fetch({ params: { dayOfWeek: todayStr } });
+        const rankingResponse = await rankingApiClient.fetchList({ query: {} });
+        setReleaseData(releaseResponse);
+        setRankingList(rankingResponse.rankings);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [todayStr]);
 
   const pickupA11yId = useId();
   const rankingA11yId = useId();
   const todayA11yId = useId();
 
-  if (loadingRelease || loadingFeatures || loadingRankings) return <div>Loading...</div>;
-  if (errorRelease || errorFeatures || errorRankings) return <div>Error loading data</div>;
+  if (loading) return <div>Loading...</div>;
+  if (error || featureListError) return <div>Error loading data</div>;
 
   return (
     <Suspense fallback={<div>Loading...</div>}>
       <Flex align="flex-start" direction="column" gap={Space * 2} justify="center" pb={Space * 2}>
-        <Box as="header" maxWidth="100%" width="100%">
+      <Box as="header" maxWidth="100%" width="100%">
           <CoverSection />
         </Box>
         <Box as="main" maxWidth="100%" width="100%">
@@ -75,7 +74,7 @@ const TopPage: React.FC = () => {
             <Spacer height={Space * 2} />
             <Box maxWidth="100%" overflowX="scroll" overflowY="hidden">
               <Flex align="stretch" direction="row" gap={Space * 2} justify="flex-start">
-                {featureList && featureList.map((feature) => (
+                {featureList && featureList.features.map((feature) => (
                   <FeatureCard key={feature.id} bookId={feature.book.id} />
                 ))}
               </Flex>
@@ -119,4 +118,4 @@ const TopPage: React.FC = () => {
   );
 };
 
-export default TopPage
+export default TopPage;
